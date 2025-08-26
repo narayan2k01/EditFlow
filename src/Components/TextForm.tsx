@@ -365,6 +365,23 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
             <div className={`p-4 rounded-lg ${mode === 'dark' ? 'bg-slate-700' : 'bg-slate-50'}`}> <p>Paragraphs: {text.split(/\n\s*\n/).filter(Boolean).length}</p> <p>Characters (no spaces): {text.replace(/\s/g, '').length}</p> </div>
         </div>
       </div>
+
+      {/* --- FOOTER --- */}
+      <footer className={`mt-12 py-6 text-center text-sm ${mode === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-500'} rounded-lg`}>
+        <span>
+          &copy; {new Date().getFullYear()} EditFlow &mdash; Made with <span className="text-red-500">♥</span> for creators.
+        </span>
+      </footer>
+
+      {/* --- GO TO TOP BUTTON --- */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className="fixed bottom-8 right-8 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-3 flex flex-col items-center transition-all"
+        title="Go to Top"
+      >
+        <ArrowUpWideNarrow className="w-6 h-6" />
+        <span className="text-xs font-semibold mt-1">Top</span>
+      </button>
     </div>
   );
 }
