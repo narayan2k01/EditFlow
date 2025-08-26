@@ -10,7 +10,8 @@ import {
   History,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import logo from '/icon.png'; // Import the logo
+import html2canvas from 'html2canvas'; // jsPDF requires this for its html method
+import logo from '/icon.png';
 
 interface TextFormProps {
   mode: 'light' | 'dark';
@@ -33,6 +34,7 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
   const [speaking, setSpeaking] = useState(false);
   const speechSynthesis = window.speechSynthesis;
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const bionicRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const savedText = localStorage.getItem('editflow-text');
@@ -45,18 +47,28 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
   useEffect(() => {
     localStorage.setItem('editflow-text', text);
   }, [text]);
-
+  
   useEffect(() => {
     if (searchTerm) {
       const regex = new RegExp(searchTerm, 'gi');
-      const highlightedText = text.replace(regex, match => `<mark class="bg-yellow-200 dark:bg-yellow-600">${match}</mark>`);
+      const highlightedText = text.replace(/\n\s*\n/g, '<br/><br/>').replace(regex, match => `<mark class="bg-yellow-200 dark:bg-yellow-600">${match}</mark>`);
       setBionicText(highlightedText);
-      setIsTextBionic(true);
-    } else if (isTextBionic) {
-      handleBionicReading();
-    } else {
+    } 
+    else if (isTextBionic && text) {
+      const paragraphs = text.split(/\n\s*\n/);
+      const bionifiedParagraphs = paragraphs.map(paragraph => {
+        const words = paragraph.split(/(\s+)/);
+        const bionicWords = words.map(word => {
+          if (word.trim().length === 0) return word;
+          const midPoint = Math.ceil(word.length / 2);
+          return `<strong>${word.slice(0, midPoint)}</strong>${word.slice(midPoint)}`;
+        });
+        return bionicWords.join('');
+      });
+      setBionicText(bionifiedParagraphs.join('<br/><br/>'));
+    } 
+    else {
       setBionicText('');
-      setIsTextBionic(false);
     }
   }, [searchTerm, text, isTextBionic]);
 
@@ -66,46 +78,23 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
     setHistoryIndex(newHistory.length - 1);
   };
 
-  const undo = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex(prev => prev - 1);
-      setText(history[historyIndex - 1].text);
-    }
-  };
-
-  const redo = () => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex(prev => prev + 1);
-      setText(history[historyIndex + 1].text);
-    }
-  };
+  const undo = () => { if (historyIndex > 0) { setHistoryIndex(prev => prev - 1); setText(history[historyIndex - 1].text); } };
+  const redo = () => { if (historyIndex < history.length - 1) { setHistoryIndex(prev => prev + 1); setText(history[historyIndex + 1].text); } };
   
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setText(newText);
     addToHistory(newText);
-    setIsTextBionic(false); // Disable bionic mode when text is edited
+    setIsTextBionic(false);
   };
 
   const handleUpperCase = () => { const newText = text.toUpperCase(); setText(newText); addToHistory(newText); };
   const handleLowerCase = () => { const newText = text.toLowerCase(); setText(newText); addToHistory(newText); };
-  const handleClearText = () => { setText(''); setBionicText(''); setIsTextBionic(false); addToHistory(''); };
+  const handleClearText = () => { setText(''); setIsTextBionic(false); addToHistory(''); };
   const handleCapitalizedCase = () => { const newText = text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '); setText(newText); addToHistory(newText); };
   const handleClearExtraSpace = () => { const newText = text.replace(/\s+/g, ' ').trim(); setText(newText); addToHistory(newText); };
-
-  const handleBionicReading = () => {
-    if (!text) return;
-    const words = text.split(/(\s+)/);
-    const bionicWords = words.map(word => {
-      if (word.trim().length === 0) return word;
-      if (word.length <= 3) return `<strong>${word}</strong>`;
-      const midPoint = Math.ceil(word.length / 2);
-      return `<strong>${word.slice(0, midPoint)}</strong>${word.slice(midPoint)}`;
-    });
-    setBionicText(bionicWords.join(''));
-    setIsTextBionic(!isTextBionic);
-  };
-
+  const handleBionicReading = () => { if (text) { setIsTextBionic(!isTextBionic); } };
+  
   const handleTextToSpeech = () => {
     if (speaking) {
       speechSynthesis.cancel();
@@ -119,89 +108,45 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
     setSpeaking(true);
   };
 
-  const handleShare = async () => { /* ... existing share logic ... */ };
+  const handleShare = async () => { /* share logic */ };
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     const margin = 20;
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const contentWidth = pageWidth - 2 * margin;
-    let yPos = margin + 15; // Start below header
+    const docWidth = doc.internal.pageSize.getWidth();
 
-    // --- Map fonts and parse font size ---
-    const pdfFontSize = parseInt(fontSize.replace('px', ''), 10);
-    const pdfFontFamily = {
-      'sans-serif': 'helvetica',
-      'serif': 'times',
-      'monospace': 'courier',
-    }[fontFamily] || 'helvetica';
-    
-    doc.setFont(pdfFontFamily);
-    doc.setFontSize(pdfFontSize);
-
-    // --- Function to add logo and header to each page ---
-    const addHeader = (pageNum: number) => {
-        doc.addImage(logo, 'PNG', margin, margin - 10, 10, 10);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('EditFlow Document', margin + 12, margin - 2);
-        doc.text(`Page ${pageNum}`, pageWidth - margin, margin - 2, { align: 'right' });
-    };
-
-    addHeader(1);
-
-    // --- Advanced text rendering logic ---
-    const renderText = (textToRender: string) => {
-        const parts = textToRender.split(/(<strong>.*?<\/strong>)/g).filter(Boolean);
-        let currentLine = '';
-        let xPos = margin;
-
-        const processPart = (partText: string, isBold: boolean) => {
-            doc.setFont(pdfFontFamily, isBold ? 'bold' : 'normal');
-            const words = partText.split(/\s+/).filter(Boolean);
-
-            for (const word of words) {
-                const wordWithSpace = word + ' ';
-                const wordWidth = doc.getTextWidth(wordWithSpace);
-                if (xPos + wordWidth > pageWidth - margin) {
-                    yPos += (pdfFontSize * 0.352778); // Move to next line
-                    xPos = margin;
-
-                    if (yPos > pageHeight - margin) {
-                        doc.addPage();
-                        yPos = margin + 15;
-                        addHeader(doc.internal.getNumberOfPages());
-                    }
-                }
-                doc.text(wordWithSpace, xPos, yPos);
-                xPos += wordWidth;
-            }
-        };
-
-        for (const part of parts) {
-            const isBold = part.startsWith('<strong>');
-            const cleanPart = part.replace(/<\/?strong>/g, '');
-            processPart(cleanPart, isBold);
-        }
-    };
-    
-    if (isTextBionic) {
-      renderText(bionicText);
-    } else {
-      const lines = doc.splitTextToSize(text, contentWidth);
-      for (let i = 0; i < lines.length; i++) {
-        if (yPos > pageHeight - margin) {
-            doc.addPage();
-            yPos = margin + 15;
-            addHeader(doc.internal.getNumberOfPages());
-        }
-        doc.text(lines[i], margin, yPos);
-        yPos += (pdfFontSize * 0.352778);
+    const addHeader = (docInstance: jsPDF) => {
+      const pageCount = (docInstance.internal as any).getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        docInstance.setPage(i);
+        docInstance.addImage(logo, 'PNG', margin, margin - 15, 15, 15);
+        docInstance.setFont('helvetica', 'normal');
+        docInstance.setFontSize(10);
+        docInstance.text('EditFlow Document', margin + 20, margin - 5);
+        docInstance.text(`Page ${i}`, docWidth - margin, margin - 5, { align: 'right' });
       }
-    }
+    };
 
-    doc.save('editflow-document.pdf');
+    if (isTextBionic && bionicRef.current) {
+      const source = bionicRef.current;
+      doc.html(source, {
+        callback: function(docInstance) {
+          addHeader(docInstance);
+          docInstance.save('editflow-document.pdf');
+        },
+        x: margin,
+        y: margin + 10,
+        width: docWidth - (margin * 2),
+        windowWidth: source.scrollWidth,
+      });
+    } else {
+      doc.setFont(fontFamily);
+      doc.setFontSize(parseInt(fontSize.replace('px',''), 10));
+      const lines = doc.splitTextToSize(text, docWidth - margin * 2);
+      doc.text(lines, margin, margin + 10);
+      addHeader(doc);
+      doc.save('editflow-document.pdf');
+    }
   };
 
   return (
@@ -214,19 +159,16 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
         <select 
           className={`px-3 py-2 rounded-lg ${ mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900' }`}
           value={fontSize}
-          onChange={(e) => setFontSize(e.target.value)}
-        >
+          onChange={(e) => setFontSize(e.target.value)} >
           <option value="14px">Small</option>
           <option value="16px">Medium</option>
           <option value="18px">Large</option>
           <option value="20px">Extra Large</option>
         </select>
-
         <select 
           className={`px-3 py-2 rounded-lg ${ mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900' }`}
           value={fontFamily}
-          onChange={(e) => setFontFamily(e.target.value)}
-        >
+          onChange={(e) => setFontFamily(e.target.value)} >
           <option value="sans-serif">Sans Serif</option>
           <option value="serif">Serif</option>
           <option value="monospace">Monospace</option>
@@ -234,10 +176,11 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
       </div>
 
       <div className={`p-6 rounded-lg shadow-lg mb-8 ${ mode === 'dark' ? 'bg-slate-800' : 'bg-white' }`}>
-        {isTextBionic ? (
+        {isTextBionic || searchTerm ? (
           <div
-            className={`w-full h-64 p-4 rounded-lg mb-6 outline-none transition-colors overflow-auto text-justify ${ mode === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900' }`}
-            style={{ fontSize, fontFamily }}
+            ref={bionicRef}
+            className={`w-full h-auto p-4 rounded-lg mb-6 outline-none transition-colors text-justify whitespace-pre-wrap`} // h-auto allows it to be measured
+            style={{ fontSize, fontFamily, backgroundColor: mode === 'dark' ? '#0f172a' : '#f8fafc', color: mode === 'dark' ? 'white' : 'black' }}
             dangerouslySetInnerHTML={{ __html: bionicText }}
           />
         ) : (
@@ -251,17 +194,17 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
         )}
 
         <div className="flex flex-wrap gap-3">
-            <button onClick={handleUpperCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <ArrowUpWideNarrow className="w-4 h-4" /> Uppercase </button>
-            <button onClick={handleLowerCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <ArrowDownWideNarrow className="w-4 h-4" /> Lowercase </button>
-            <button onClick={handleCapitalizedCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <Type className="w-4 h-4" /> Capitalize </button>
-            <button onClick={handleClearExtraSpace} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <RefreshCcw className="w-4 h-4" /> Clear Extra Space </button>
-            <button onClick={handleBionicReading} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"> <Type className="w-4 h-4" /> {isTextBionic ? "De-Bionify" : "Bionify"} </button>
-            <button onClick={handleTextToSpeech} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${ speaking ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' } text-white`}> <Volume2 className="w-4 h-4" /> {speaking ? 'Stop' : 'Speak'} </button>
-            <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"> <Share2 className="w-4 h-4" /> Share </button>
-            <button onClick={undo} disabled={historyIndex <= 0} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"> <History className="w-4 h-4" /> Undo </button>
-            <button onClick={redo} disabled={historyIndex >= history.length - 1} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"> <History className="w-4 h-4 transform scale-x-[-1]" /> Redo </button>
-            <button onClick={handleClearText} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"> <RefreshCcw className="w-4 h-4" /> Clear </button>
-            <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition-colors"> <Download className="w-4 h-4" /> Download PDF </button>
+          <button onClick={handleUpperCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <ArrowUpWideNarrow className="w-4 h-4" /> Uppercase </button>
+          <button onClick={handleLowerCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <ArrowDownWideNarrow className="w-4 h-4" /> Lowercase </button>
+          <button onClick={handleCapitalizedCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <Type className="w-4 h-4" /> Capitalize </button>
+          <button onClick={handleClearExtraSpace} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <RefreshCcw className="w-4 h-4" /> Clear Extra Space </button>
+          <button onClick={handleBionicReading} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"> <Type className="w-4 h-4" /> {isTextBionic ? "De-Bionify" : "Bionify"} </button>
+          <button onClick={handleTextToSpeech} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${ speaking ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' } text-white`}> <Volume2 className="w-4 h-4" /> {speaking ? 'Stop' : 'Speak'} </button>
+          <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"> <Share2 className="w-4 h-4" /> Share </button>
+          <button onClick={undo} disabled={historyIndex <= 0} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"> <History className="w-4 h-4" /> Undo </button>
+          <button onClick={redo} disabled={historyIndex >= history.length - 1} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"> <History className="w-4 h-4 transform scale-x-[-1]" /> Redo </button>
+          <button onClick={handleClearText} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"> <RefreshCcw className="w-4 h-4" /> Clear </button>
+          <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition-colors"> <Download className="w-4 h-4" /> Download PDF </button>
         </div>
       </div>
 
