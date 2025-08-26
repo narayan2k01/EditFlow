@@ -291,110 +291,115 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h2 className={`text-3xl font-bold mb-8 ${mode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-        The EditFlow is Bionic Reading Text Editor
+    <div className="max-w-4xl w-full mx-auto px-2 sm:px-4 md:px-8 py-4">
+      <h2 className={`text-2xl sm:text-3xl md:text-4xl font-bold mb-6 sm:mb-8 ${mode === 'dark' ? 'text-white' : 'text-slate-900'} text-center`}>
+        Bionic Reading Text Editor
       </h2>
 
-      {/* --- IMPRESSIVE TOOLBAR --- */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-lg shadow flex flex-wrap gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 justify-center">
-        <button onClick={handleUpperCase} className="toolbar-btn group flex flex-col items-center" title="Convert to UPPERCASE">
-          <ArrowUpWideNarrow className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">UPPERCASE</span>
-        </button>
-        <button onClick={handleLowerCase} className="toolbar-btn group flex flex-col items-center" title="Convert to lowercase">
-          <ArrowDownWideNarrow className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">lowercase</span>
-        </button>
-        <button onClick={handleCapitalizedCase} className="toolbar-btn group flex flex-col items-center" title="Capitalize Each Word">
-          <Type className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Capitalize</span>
-        </button>
-        <button onClick={handleClearExtraSpace} className="toolbar-btn group flex flex-col items-center" title="Remove Extra Spaces">
-          <RefreshCcw className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Trim</span>
-        </button>
-        <button onClick={handleBionicReading} className={`toolbar-btn group flex flex-col items-center ${isTextBionic ? 'bg-blue-100 dark:bg-slate-700' : ''}`} title="Bionic Reading">
-          <Type className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Bionic</span>
-        </button>
-        <button onClick={handleTextToSpeech} className="toolbar-btn group flex flex-col items-center" title={speaking ? "Stop Speaking" : "Speak"}>
-          <Volume2 className={`w-6 h-6 mb-1 ${speaking ? 'text-red-500' : 'group-hover:text-blue-600'} transition-colors`} />
-          <span className="text-xs font-medium group-hover:text-blue-600">{speaking ? "Stop" : "Speak"}</span>
-        </button>
-        <button onClick={undo} disabled={historyIndex <= 0} className="toolbar-btn group flex flex-col items-center" title="Undo">
-          <History className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Undo</span>
-        </button>
-        <button onClick={redo} disabled={historyIndex >= history.length - 1} className="toolbar-btn group flex flex-col items-center" title="Redo">
-          <History style={{ transform: 'scaleX(-1)' }} className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Redo</span>
-        </button>
-        <button onClick={handleClearText} className="toolbar-btn group flex flex-col items-center" title="Clear All">
-          <RefreshCcw className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Clear</span>
-        </button>
-        <button onClick={handleDownloadPDF} disabled={isDownloading} className="toolbar-btn group flex flex-col items-center" title="Download PDF">
-          {isDownloading ? <Loader2 className="w-6 h-6 mb-1 animate-spin" /> : showThumbsUp ? <ThumbsUp className="w-6 h-6 mb-1 text-yellow-400" /> : <Download className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />}
-          <span className="text-xs font-medium group-hover:text-blue-600">{isDownloading ? "Downloading" : showThumbsUp ? "Done!" : "PDF"}</span>
-        </button>
-        <button onClick={handleShare} className="toolbar-btn group flex flex-col items-center" title="Share">
-          <Share2 className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
-          <span className="text-xs font-medium group-hover:text-blue-600">Share</span>
-        </button>
+      <div className="relative">
+        {/* Sticky Toolbar */}
+        <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 rounded-t-lg shadow flex flex-wrap gap-2 sm:gap-4 px-2 sm:px-4 py-2 sm:py-3 border-b border-slate-200 dark:border-slate-800 justify-center">
+          {/* --- Formatting Group --- */}
+          <div className="flex gap-3">
+            <button onClick={handleUpperCase} className="toolbar-btn group flex flex-col items-center" title="Convert to UPPERCASE">
+              <ArrowUpWideNarrow className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">UPPERCASE</span>
+            </button>
+            <button onClick={handleLowerCase} className="toolbar-btn group flex flex-col items-center" title="Convert to lowercase">
+              <ArrowDownWideNarrow className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">lowercase</span>
+            </button>
+            <button onClick={handleCapitalizedCase} className="toolbar-btn group flex flex-col items-center" title="Capitalize Each Word">
+              <Type className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Capitalize</span>
+            </button>
+            <button onClick={handleClearExtraSpace} className="toolbar-btn group flex flex-col items-center" title="Remove Extra Spaces">
+              <RefreshCcw className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Trim</span>
+            </button>
+            <button onClick={handleBionicReading} className={`toolbar-btn group flex flex-col items-center ${isTextBionic ? 'bg-blue-100 dark:bg-slate-700' : ''}`} title="Bionic Reading">
+              <Type className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Bionic</span>
+            </button>
+          </div>
+          {/* --- Utility Group --- */}
+          <div className="flex gap-3">
+            <button onClick={handleTextToSpeech} className="toolbar-btn group flex flex-col items-center" title={speaking ? "Stop Speaking" : "Speak"}>
+              <Volume2 className={`w-6 h-6 mb-1 ${speaking ? 'text-red-500' : 'group-hover:text-blue-600'} transition-colors`} />
+              <span className="text-xs font-medium group-hover:text-blue-600">{speaking ? "Stop" : "Speak"}</span>
+            </button>
+            <button onClick={undo} disabled={historyIndex <= 0} className="toolbar-btn group flex flex-col items-center" title="Undo">
+              <History className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Undo</span>
+            </button>
+            <button onClick={redo} disabled={historyIndex >= history.length - 1} className="toolbar-btn group flex flex-col items-center" title="Redo">
+              <History style={{ transform: 'scaleX(-1)' }} className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Redo</span>
+            </button>
+            <button onClick={handleClearText} className="toolbar-btn group flex flex-col items-center" title="Clear All">
+              <RefreshCcw className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Clear</span>
+            </button>
+            <button onClick={handleDownloadPDF} disabled={isDownloading} className="toolbar-btn group flex flex-col items-center" title="Download PDF">
+              {isDownloading ? <Loader2 className="w-6 h-6 mb-1 animate-spin" /> : showThumbsUp ? <ThumbsUp className="w-6 h-6 mb-1 text-yellow-400" /> : <Download className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />}
+              <span className="text-xs font-medium group-hover:text-blue-600">{isDownloading ? "Downloading" : showThumbsUp ? "Done!" : "PDF"}</span>
+            </button>
+            <button onClick={handleShare} className="toolbar-btn group flex flex-col items-center" title="Share">
+              <Share2 className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+              <span className="text-xs font-medium group-hover:text-blue-600">Share</span>
+            </button>
+          </div>
+        </div>
+
+        {/* --- TEXT AREA / BIONIC VIEW --- */}
+        <div className={`p-2 sm:p-4 rounded-b-lg shadow-lg mb-8 ${mode === 'dark' ? 'bg-slate-800' : 'bg-white'} overflow-auto`}>
+          {isTextBionic || searchTerm ? (
+            <div
+              ref={bionicRef}
+              className="w-full min-h-[12rem] sm:min-h-[16rem] p-2 sm:p-6 rounded-b-lg outline-none transition-colors text-justify whitespace-pre-wrap"
+              style={{
+                fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+                fontFamily,
+                backgroundColor: mode === 'dark' ? '#0f172a' : '#f8fafc',
+                color: mode === 'dark' ? 'white' : 'black'
+              }}
+              dangerouslySetInnerHTML={{ __html: bionicText }}
+            />
+          ) : (
+            <textarea
+              className={`w-full min-h-[12rem] sm:min-h-[16rem] p-2 sm:p-6 rounded-b-lg outline-none transition-colors text-justify resize-y ${mode === 'dark' ? 'bg-slate-900 text-white placeholder:text-slate-400' : 'bg-slate-50 text-slate-900 placeholder:text-slate-500'}`}
+              style={{
+                fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+                fontFamily
+              }}
+              value={text}
+              onChange={handleTextChange}
+              onPaste={handlePaste}
+              placeholder="Start typing or paste your text here..."
+            />
+          )}
+        </div>
       </div>
 
-      {/* --- TEXT AREA / BIONIC VIEW --- */}
-      <div className={`p-0 rounded-b-lg shadow-lg mb-8 ${mode === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
-        {isTextBionic || searchTerm ? (
-          <div
-            ref={bionicRef}
-            className="w-full min-h-[16rem] p-6 rounded-b-lg outline-none transition-colors text-justify whitespace-pre-wrap"
-            style={{ fontSize, fontFamily, backgroundColor: mode === 'dark' ? '#0f172a' : '#f8fafc', color: mode === 'dark' ? 'white' : 'black' }}
-            dangerouslySetInnerHTML={{ __html: bionicText }}
-          />
-        ) : (
-          <textarea
-            className={`w-full min-h-[16rem] p-6 rounded-b-lg outline-none transition-colors text-justify resize-y ${mode === 'dark' ? 'bg-slate-900 text-white placeholder:text-slate-400' : 'bg-slate-50 text-slate-900 placeholder:text-slate-500'}`}
-            style={{ fontSize, fontFamily }}
-            value={text}
-            onChange={handleTextChange}
-            onPaste={handlePaste}
-            placeholder="Start typing or paste your text here..."
-          />
-        )}
-      </div>
-
-      {/* --- LIVE COUNTS --- */}
-      <div className="flex gap-6 mt-2 text-xs text-slate-500 dark:text-slate-400">
+      {/* Live Counts */}
+      <div className="flex flex-wrap gap-4 mt-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 justify-center">
         <span>Words: {text.split(/\s+/).filter(Boolean).length}</span>
         <span>Characters: {text.length}</span>
         <span>Paragraphs: {text.split(/\n\s*\n/).filter(Boolean).length}</span>
       </div>
 
-      <div className={`p-6 rounded-lg ${mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}`}>
-        <h3 className="text-xl font-semibold mb-6">Text Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className={`p-4 rounded-lg ${mode === 'dark' ? 'bg-slate-700' : 'bg-slate-50'}`}> <p>Words: {text.split(/\s+/).filter(Boolean).length}</p> <p>Characters: {text.length}</p> </div>
-            <div className={`p-4 rounded-lg ${mode === 'dark' ? 'bg-slate-700' : 'bg-slate-50'}`}> <p>Reading time: {(0.008 * text.split(' ').filter(Boolean).length).toFixed(2)} mins</p> <p>Sentences: {text.split(/[.!?]+/).filter(Boolean).length}</p> </div>
-            <div className={`p-4 rounded-lg ${mode === 'dark' ? 'bg-slate-700' : 'bg-slate-50'}`}> <p>Paragraphs: {text.split(/\n\s*\n/).filter(Boolean).length}</p> <p>Characters (no spaces): {text.replace(/\s/g, '').length}</p> </div>
-        </div>
-      </div>
-
-      {/* --- FOOTER --- */}
-      <footer className={`mt-12 py-6 text-center text-sm ${mode === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-500'} rounded-lg`}>
-        <span>
-          &copy; {new Date().getFullYear()} EditFlow &mdash; Made with <span className="text-red-500">♥</span> for creators.
-        </span>
+      {/* Footer */}
+      <footer className={`mt-12 py-6 text-center text-xs sm:text-sm ${mode === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-500'} rounded-lg`}>
+        &copy; {new Date().getFullYear()} EditFlow &mdash; Made with <span className="text-red-500">♥</span> for creators.
       </footer>
 
-      {/* --- GO TO TOP BUTTON --- */}
+      {/* Go to Top Button */}
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className="fixed bottom-8 right-8 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-3 flex flex-col items-center transition-all"
+        className="fixed bottom-6 right-4 sm:right-8 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-2 sm:p-3 flex flex-col items-center transition-all"
         title="Go to Top"
       >
-        <ArrowUpWideNarrow className="w-6 h-6" />
+        <ArrowUpWideNarrow className="w-5 h-5 sm:w-6 sm:h-6" />
         <span className="text-xs font-semibold mt-1">Top</span>
       </button>
     </div>
