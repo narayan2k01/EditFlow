@@ -114,6 +114,20 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
 
   const handleShare = async () => { /* share logic */ };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    // Remove all * and # characters
+    const cleaned = pasted.replace(/[*#]/g, '');
+    // Insert at cursor position
+    const textarea = e.target as HTMLTextAreaElement;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newText = text.slice(0, start) + cleaned + text.slice(end);
+    setText(newText);
+    addToHistory(newText);
+  };
+
   // Helper: Convert plain text to HTML with formatting
   function formatTextToHTML(text: string) {
     // Split by paragraphs (double line breaks)
@@ -345,6 +359,7 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
             style={{ fontSize, fontFamily }}
             value={text}
             onChange={handleTextChange}
+            onPaste={handlePaste}
             placeholder="Start typing or paste your text here..."
           />
         )}
