@@ -293,7 +293,7 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className={`text-3xl font-bold mb-8 ${mode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-        Text Editor
+        The EditFlow is Bionic Reading Text Editor
       </h2>
 
       {/* --- IMPRESSIVE TOOLBAR --- */}
