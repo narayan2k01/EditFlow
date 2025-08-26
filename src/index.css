@@ -19,3 +19,17 @@ body {
 .dark strong {
   color: #60a5fa; /* A brighter, light-blue color for dark mode */
 }
+.toolbar-btn {
+  @apply px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors text-slate-700 dark:text-white;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

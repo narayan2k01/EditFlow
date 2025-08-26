@@ -8,6 +8,8 @@ import {
   Volume2,
   Share2,
   History,
+  ThumbsUp,
+  Loader2,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas'; // jsPDF requires this for its html method
@@ -32,6 +34,8 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
   const [fontSize, setFontSize] = useState('16px');
   const [fontFamily, setFontFamily] = useState('sans-serif');
   const [speaking, setSpeaking] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showThumbsUp, setShowThumbsUp] = useState(false);
   const speechSynthesis = window.speechSynthesis;
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const bionicRef = useRef<HTMLDivElement>(null);
@@ -110,105 +114,250 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
 
   const handleShare = async () => { /* share logic */ };
 
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF();
-    const margin = 20;
-    const docWidth = doc.internal.pageSize.getWidth();
-
-    const addHeader = (docInstance: jsPDF) => {
-      const pageCount = (docInstance.internal as any).getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        docInstance.setPage(i);
-        docInstance.addImage(logo, 'PNG', margin, margin - 15, 15, 15);
-        docInstance.setFont('helvetica', 'normal');
-        docInstance.setFontSize(10);
-        docInstance.text('EditFlow Document', margin + 20, margin - 5);
-        docInstance.text(`Page ${i}`, docWidth - margin, margin - 5, { align: 'right' });
+  // Helper: Convert plain text to HTML with formatting
+  function formatTextToHTML(text: string) {
+    // Split by paragraphs (double line breaks)
+    const paragraphs = text.split(/\n\s*\n/);
+    return paragraphs.map(paragraph => {
+      // Detect headings/subheadings (simple heuristics)
+      if (/^#\s/.test(paragraph)) {
+        // Markdown H1
+        return `<h1 style="font-size:1.5em;font-weight:bold;margin:1em 0 0.5em 0;">${paragraph.replace(/^#\s/, '')}</h1>`;
       }
+      if (/^##\s/.test(paragraph)) {
+        // Markdown H2
+        return `<h2 style="font-size:1.2em;font-weight:bold;margin:1em 0 0.5em 0;">${paragraph.replace(/^##\s/, '')}</h2>`;
+      }
+      if (/^[A-Z\s\d\W]{8,}$/.test(paragraph.trim())) {
+        // All caps line, treat as headline
+        return `<h3 style="font-size:1em;font-weight:bold;margin:1em 0 0.5em 0;">${paragraph.trim()}</h3>`;
+      }
+      // Otherwise, treat as paragraph, preserve single line breaks
+      return `<p style="margin:0 0 1em 0;white-space:pre-line;">${paragraph.replace(/\n/g, '<br/>')}</p>`;
+    }).join('');
+  }
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    setShowThumbsUp(false);
+
+    const doc = new jsPDF({
+      unit: 'px',
+      format: 'a4',
+    });
+
+    const margin = 40;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - margin * 2;
+    const contentHeight = pageHeight - margin * 2;
+    const headerHeight = 70;
+
+    const drawHeader = () => {
+      doc.addImage(logo, 'PNG', margin, margin - 10, 30, 30);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EditFlow Document', margin + 40, margin + 10);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Words: ${text.split(/\s+/).filter(Boolean).length}`, margin, margin + 30);
+      doc.text(`Characters: ${text.length}`, margin + 120, margin + 30);
+      doc.text(`Reading time: ${(0.008 * text.split(' ').filter(Boolean).length).toFixed(2)} mins`, margin, margin + 45);
+      doc.text(`Sentences: ${text.split(/[.!?]+/).filter(Boolean).length}`, margin + 120, margin + 45);
+      doc.text(`Paragraphs: ${text.split(/\n\s*\n/).filter(Boolean).length}`, margin, margin + 60);
+      doc.text(`Characters (no spaces): ${text.replace(/\s/g, '').length}`, margin + 120, margin + 60);
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.5);
+      doc.line(margin, margin + headerHeight, pageWidth - margin, margin + headerHeight);
     };
 
+    // Prepare export HTML
+    let exportHTML = '';
     if (isTextBionic && bionicRef.current) {
-      const source = bionicRef.current;
-      doc.html(source, {
-        callback: function(docInstance) {
-          addHeader(docInstance);
-          docInstance.save('editflow-document.pdf');
-        },
-        x: margin,
-        y: margin + 10,
-        width: docWidth - (margin * 2),
-        windowWidth: source.scrollWidth,
-      });
+      exportHTML = bionicRef.current.innerHTML;
     } else {
-      doc.setFont(fontFamily);
-      doc.setFontSize(parseInt(fontSize.replace('px',''), 10));
-      const lines = doc.splitTextToSize(text, docWidth - margin * 2);
-      doc.text(lines, margin, margin + 10);
-      addHeader(doc);
-      doc.save('editflow-document.pdf');
+      exportHTML = formatTextToHTML(text);
     }
+
+    // Split HTML into paragraphs
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = exportHTML;
+    const nodes = Array.from(tempDiv.childNodes);
+
+    let pageNum = 0;
+    let i = 0;
+    while (i < nodes.length) {
+      // Create a page container
+      const pageDiv = document.createElement('div');
+      pageDiv.style.width = `${contentWidth}px`;
+      pageDiv.style.fontSize = fontSize;
+      pageDiv.style.fontFamily = fontFamily;
+      pageDiv.style.background = mode === 'dark' ? '#0f172a' : '#f8fafc';
+      pageDiv.style.color = mode === 'dark' ? 'white' : 'black';
+      pageDiv.style.lineHeight = '1.5';
+      pageDiv.style.wordBreak = 'break-word';
+      pageDiv.style.padding = '0px';
+      pageDiv.style.position = 'absolute';
+      pageDiv.style.left = '-9999px';
+      pageDiv.style.top = '0';
+      pageDiv.style.overflow = 'hidden';
+      pageDiv.style.display = 'block';
+
+      // For first page, reduce height for header
+      const availableHeight = pageNum === 0 ? contentHeight - headerHeight : contentHeight;
+      pageDiv.style.height = `${availableHeight}px`;
+
+      // Add paragraphs until we fill the page
+      let currentHeight = 0;
+      let startIdx = i;
+      while (i < nodes.length) {
+        pageDiv.appendChild(nodes[i].cloneNode(true));
+        document.body.appendChild(pageDiv);
+        const measuredHeight = pageDiv.scrollHeight;
+        document.body.removeChild(pageDiv);
+
+        if (measuredHeight > availableHeight) {
+          // Remove last node, page is full
+          pageDiv.removeChild(pageDiv.lastChild!);
+          break;
+        } else {
+          currentHeight = measuredHeight;
+          i++;
+        }
+      }
+
+      // If nothing fits, force at least one paragraph per page
+      if (pageDiv.childNodes.length === 0 && i < nodes.length) {
+        pageDiv.appendChild(nodes[i].cloneNode(true));
+        i++;
+      }
+
+      document.body.appendChild(pageDiv);
+
+      const canvas = await html2canvas(pageDiv, {
+        backgroundColor: null,
+        scale: 2,
+        width: contentWidth,
+        height: availableHeight,
+        windowWidth: contentWidth,
+        windowHeight: availableHeight,
+      });
+
+      document.body.removeChild(pageDiv);
+
+      if (pageNum === 0) {
+        drawHeader();
+        doc.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          margin,
+          margin + headerHeight,
+          contentWidth,
+          availableHeight
+        );
+      } else {
+        doc.addPage();
+        doc.addImage(
+          canvas.toDataURL('image/png'),
+          'PNG',
+          margin,
+          margin,
+          contentWidth,
+          availableHeight
+        );
+      }
+
+      pageNum++;
+    }
+
+    doc.save('editflow-document.pdf');
+    setIsDownloading(false);
+    setShowThumbsUp(true);
+    setTimeout(() => setShowThumbsUp(false), 2000);
   };
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className={`text-3xl font-bold mb-8 ${ mode === 'dark' ? 'text-white' : 'text-slate-900' }`}>
+      <h2 className={`text-3xl font-bold mb-8 ${mode === 'dark' ? 'text-white' : 'text-slate-900'}`}>
         Text Editor
       </h2>
 
-      <div className="mb-6 flex gap-4">
-        <select 
-          className={`px-3 py-2 rounded-lg ${ mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900' }`}
-          value={fontSize}
-          onChange={(e) => setFontSize(e.target.value)} >
-          <option value="14px">Small</option>
-          <option value="16px">Medium</option>
-          <option value="18px">Large</option>
-          <option value="20px">Extra Large</option>
-        </select>
-        <select 
-          className={`px-3 py-2 rounded-lg ${ mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900' }`}
-          value={fontFamily}
-          onChange={(e) => setFontFamily(e.target.value)} >
-          <option value="sans-serif">Sans Serif</option>
-          <option value="serif">Serif</option>
-          <option value="monospace">Monospace</option>
-        </select>
+      {/* --- IMPRESSIVE TOOLBAR --- */}
+      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-lg shadow flex flex-wrap gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 justify-center">
+        <button onClick={handleUpperCase} className="toolbar-btn group flex flex-col items-center" title="Convert to UPPERCASE">
+          <ArrowUpWideNarrow className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">UPPERCASE</span>
+        </button>
+        <button onClick={handleLowerCase} className="toolbar-btn group flex flex-col items-center" title="Convert to lowercase">
+          <ArrowDownWideNarrow className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">lowercase</span>
+        </button>
+        <button onClick={handleCapitalizedCase} className="toolbar-btn group flex flex-col items-center" title="Capitalize Each Word">
+          <Type className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Capitalize</span>
+        </button>
+        <button onClick={handleClearExtraSpace} className="toolbar-btn group flex flex-col items-center" title="Remove Extra Spaces">
+          <RefreshCcw className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Trim</span>
+        </button>
+        <button onClick={handleBionicReading} className={`toolbar-btn group flex flex-col items-center ${isTextBionic ? 'bg-blue-100 dark:bg-slate-700' : ''}`} title="Bionic Reading">
+          <Type className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Bionic</span>
+        </button>
+        <button onClick={handleTextToSpeech} className="toolbar-btn group flex flex-col items-center" title={speaking ? "Stop Speaking" : "Speak"}>
+          <Volume2 className={`w-6 h-6 mb-1 ${speaking ? 'text-red-500' : 'group-hover:text-blue-600'} transition-colors`} />
+          <span className="text-xs font-medium group-hover:text-blue-600">{speaking ? "Stop" : "Speak"}</span>
+        </button>
+        <button onClick={undo} disabled={historyIndex <= 0} className="toolbar-btn group flex flex-col items-center" title="Undo">
+          <History className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Undo</span>
+        </button>
+        <button onClick={redo} disabled={historyIndex >= history.length - 1} className="toolbar-btn group flex flex-col items-center" title="Redo">
+          <History style={{ transform: 'scaleX(-1)' }} className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Redo</span>
+        </button>
+        <button onClick={handleClearText} className="toolbar-btn group flex flex-col items-center" title="Clear All">
+          <RefreshCcw className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Clear</span>
+        </button>
+        <button onClick={handleDownloadPDF} disabled={isDownloading} className="toolbar-btn group flex flex-col items-center" title="Download PDF">
+          {isDownloading ? <Loader2 className="w-6 h-6 mb-1 animate-spin" /> : showThumbsUp ? <ThumbsUp className="w-6 h-6 mb-1 text-yellow-400" /> : <Download className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />}
+          <span className="text-xs font-medium group-hover:text-blue-600">{isDownloading ? "Downloading" : showThumbsUp ? "Done!" : "PDF"}</span>
+        </button>
+        <button onClick={handleShare} className="toolbar-btn group flex flex-col items-center" title="Share">
+          <Share2 className="w-6 h-6 mb-1 group-hover:text-blue-600 transition-colors" />
+          <span className="text-xs font-medium group-hover:text-blue-600">Share</span>
+        </button>
       </div>
 
-      <div className={`p-6 rounded-lg shadow-lg mb-8 ${ mode === 'dark' ? 'bg-slate-800' : 'bg-white' }`}>
+      {/* --- TEXT AREA / BIONIC VIEW --- */}
+      <div className={`p-0 rounded-b-lg shadow-lg mb-8 ${mode === 'dark' ? 'bg-slate-800' : 'bg-white'}`}>
         {isTextBionic || searchTerm ? (
           <div
             ref={bionicRef}
-            className={`w-full h-auto p-4 rounded-lg mb-6 outline-none transition-colors text-justify whitespace-pre-wrap`} // h-auto allows it to be measured
+            className="w-full min-h-[16rem] p-6 rounded-b-lg outline-none transition-colors text-justify whitespace-pre-wrap"
             style={{ fontSize, fontFamily, backgroundColor: mode === 'dark' ? '#0f172a' : '#f8fafc', color: mode === 'dark' ? 'white' : 'black' }}
             dangerouslySetInnerHTML={{ __html: bionicText }}
           />
         ) : (
           <textarea
-            className={`w-full h-64 p-4 rounded-lg mb-6 outline-none transition-colors text-justify ${ mode === 'dark' ? 'bg-slate-900 text-white placeholder:text-slate-400' : 'bg-slate-50 text-slate-900 placeholder:text-slate-500' }`}
+            className={`w-full min-h-[16rem] p-6 rounded-b-lg outline-none transition-colors text-justify resize-y ${mode === 'dark' ? 'bg-slate-900 text-white placeholder:text-slate-400' : 'bg-slate-50 text-slate-900 placeholder:text-slate-500'}`}
             style={{ fontSize, fontFamily }}
             value={text}
             onChange={handleTextChange}
-            placeholder="Enter your text here..."
+            placeholder="Start typing or paste your text here..."
           />
         )}
-
-        <div className="flex flex-wrap gap-3">
-          <button onClick={handleUpperCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <ArrowUpWideNarrow className="w-4 h-4" /> Uppercase </button>
-          <button onClick={handleLowerCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <ArrowDownWideNarrow className="w-4 h-4" /> Lowercase </button>
-          <button onClick={handleCapitalizedCase} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <Type className="w-4 h-4" /> Capitalize </button>
-          <button onClick={handleClearExtraSpace} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"> <RefreshCcw className="w-4 h-4" /> Clear Extra Space </button>
-          <button onClick={handleBionicReading} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"> <Type className="w-4 h-4" /> {isTextBionic ? "De-Bionify" : "Bionify"} </button>
-          <button onClick={handleTextToSpeech} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${ speaking ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' } text-white`}> <Volume2 className="w-4 h-4" /> {speaking ? 'Stop' : 'Speak'} </button>
-          <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"> <Share2 className="w-4 h-4" /> Share </button>
-          <button onClick={undo} disabled={historyIndex <= 0} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"> <History className="w-4 h-4" /> Undo </button>
-          <button onClick={redo} disabled={historyIndex >= history.length - 1} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"> <History className="w-4 h-4 transform scale-x-[-1]" /> Redo </button>
-          <button onClick={handleClearText} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"> <RefreshCcw className="w-4 h-4" /> Clear </button>
-          <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition-colors"> <Download className="w-4 h-4" /> Download PDF </button>
-        </div>
       </div>
 
-      <div className={`p-6 rounded-lg ${ mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900' }`}>
+      {/* --- LIVE COUNTS --- */}
+      <div className="flex gap-6 mt-2 text-xs text-slate-500 dark:text-slate-400">
+        <span>Words: {text.split(/\s+/).filter(Boolean).length}</span>
+        <span>Characters: {text.length}</span>
+        <span>Paragraphs: {text.split(/\n\s*\n/).filter(Boolean).length}</span>
+      </div>
+
+      <div className={`p-6 rounded-lg ${mode === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}`}>
         <h3 className="text-xl font-semibold mb-6">Text Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className={`p-4 rounded-lg ${mode === 'dark' ? 'bg-slate-700' : 'bg-slate-50'}`}> <p>Words: {text.split(/\s+/).filter(Boolean).length}</p> <p>Characters: {text.length}</p> </div>
@@ -219,3 +368,5 @@ export default function TextForm({ mode, searchTerm }: TextFormProps) {
     </div>
   );
 }
+
+
